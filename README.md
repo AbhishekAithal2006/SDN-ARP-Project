@@ -49,7 +49,7 @@ sudo mn -c
 
 ---
 
-### Step 2: Start Ryu Controller
+### Step 2: Start Ryu Controller (Terminal 1)
 
 ```bash
 cd ~/SDN
@@ -59,7 +59,7 @@ ryu-manager --ofp-tcp-listen-port 6633 arp_controller.py
 
 ---
 
-### Step 3: Start Mininet
+### Step 3: Start Mininet (Terminal 2)
 
 ```bash
 cd ~/SDN

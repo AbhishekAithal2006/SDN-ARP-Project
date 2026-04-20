@@ -30,12 +30,21 @@ Implement ARP request and reply handling using an SDN controller. The controller
 ##  Network Topology
 
 ```
-h1 ---- s1 ---- h2
+        h1        h2
+         |        |
+         |        |
+         s1 ------ s2
+         |        |
+         |        |
+        h3        h4
+
 ```
 
 * h1: 10.0.0.1
 * h2: 10.0.0.2
-* s1: OpenFlow switch
+* h3: 10.0.0.3
+* h4: 10.0.0.4
+* s1,s2: OpenFlow switches
 
 ---
 
@@ -85,7 +94,7 @@ sudo mn --custom topo.py \
 
 ![Topology](screenshots/topology.png)
 
-✔ Shows hosts (h1, h2), switch (s1), and links created successfully.
+✔ Shows hosts (h1, h2, h3, h4), switch (s1,s2), and links created successfully.
 
 ---
 
@@ -111,7 +120,7 @@ sh ovs-ofctl -O OpenFlow13 dump-flows s1
 
 ✔ Shows:
 
-* Flow rules installed for h1 ↔ h2
+* Flow rules installed for all hosts
 * Default rule sending packets to controller
 
 ---

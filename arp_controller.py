@@ -9,8 +9,8 @@ class ARPHandler(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(ARPHandler, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}   # NEW: MAC learning table
-        self.arp_table = {}
+        self.mac_to_port = {}   # {dpid: {mac: port}}
+        self.arp_table = {}     # {ip: mac}
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -18,9 +18,12 @@ class ARPHandler(app_manager.RyuApp):
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
 
+        # Send all unknown packets to controller
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.add_flow(datapath, 0, match, actions)
+
+        print(f"Switch {datapath.id} connected")
 
     def add_flow(self, datapath, priority, match, actions):
         parser = datapath.ofproto_parser
@@ -50,32 +53,39 @@ class ARPHandler(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
 
+        if eth is None:
+            return
+
         dst = eth.dst
         src = eth.src
 
-        # Learn MAC address
+        # Learn MAC
         self.mac_to_port[dpid][src] = in_port
+        print(f"[Switch {dpid}] Learned MAC: {src} -> Port {in_port}")
 
-        # ARP handling
+        # ARP Handling
         if eth.ethertype == 2054:
             arp_pkt = pkt.get_protocol(arp.arp)
 
             self.arp_table[arp_pkt.src_ip] = arp_pkt.src_mac
-            print(f"Learned ARP: {arp_pkt.src_ip} -> {arp_pkt.src_mac}")
+            print(f"[ARP] {arp_pkt.src_ip} -> {arp_pkt.src_mac}")
 
-        # Forwarding logic (IMPORTANT FIX)
+        # Forwarding decision
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
+            print(f"[Switch {dpid}] Forwarding {src} -> {dst} via port {out_port}")
         else:
             out_port = ofproto.OFPP_FLOOD
+            print(f"[Switch {dpid}] Flooding packet from {src}")
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # Install flow rule (so next packets don’t come to controller)
+        # Install flow rule if known destination
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
             self.add_flow(datapath, 1, match, actions)
 
+        # Send packet
         out = parser.OFPPacketOut(
             datapath=datapath,
             buffer_id=ofproto.OFP_NO_BUFFER,
